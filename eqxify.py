@@ -1,6 +1,7 @@
 from bs4 import BeautifulSoup
 import datetime as dt
 import requests
+from random import SystemRandom
 
 times = ['12:00am', '12:30am', '1:00am', '1:30am', '2:00am',
 '2:30am', '3:00am', '3:30am', '4:00am', '4:30am', '5:00am',
@@ -39,4 +40,29 @@ for x in range(7):
 			text = s["title"]
 			song = text.split(" - ")[0]
 			artist = text.split(" - ")[1]
+
+clientID = ""
+clientSecret = ""
+redirectURI = "http://localhost:8888/callback"
+
+responseType = "code"
+
+possible = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+text = []
+#SystemRandom() implements os.urandom() which is crytographically
+#secure
+randomGen = SystemRandom()
+
+for x in range(16):
+	text.append(randomGen.choice(possible))
+
+state = "".join(text)
+scope = "playlist-modify-private"
+
+payload = {'client_id': clientID, 'response_type': responseType,
+'redirect_uri': redirectURI, 'state': state, 'scope': scope}
+
+r = requests.get("http://accounts.spotify.com/authorize",
+data=payload)
+
 
