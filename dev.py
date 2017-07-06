@@ -4,7 +4,7 @@ import requests
 from random import SystemRandom
 from requests_oauthlib import OAuth2Session
 
-'''
+
 times = ['12:00am', '12:30am', '1:00am', '1:30am', '2:00am',
 '2:30am', '3:00am', '3:30am', '4:00am', '4:30am', '5:00am',
 '5:30am', '6:00am', '6:30am', '7:00am', '7:30am', '8:00am',
@@ -41,10 +41,10 @@ for x in range(7):
 			text = s["title"]
 			song = text.split(" - ")[0]
 			artist = text.split(" - ")[1]
-'''
 
-clientID = "c5339f8e511445639d2bb229746c5576"
-clientSecret = "6e829b275d2247d48da5f5ec52efa167"
+
+clientID = 
+clientSecret = 
 redirectURI = "http://localhost:8888/callback"
 
 responseType = "code"
@@ -69,11 +69,3 @@ params=payload)
 
 print(r.content)
 
-#oauth = OAuth2Session(clientID, redirectURI, scope)
-
-#authorizationURL, state = authorization_url(
-
-#https://accounts.spotify.com/authorize/?client_id=c5339f8e511445639d2bb229746c5576&response_type=code&redirect_uri=c5339f8e511445639d2bb229746c5576&scope=playlist-modify-private
-
-
-#https://accounts.spotify.com/authorize/?client_id=c5339f8e511445639d2bb229746c5576&response_type=code&redirect_uri=c5339f8e511445639d2bb229746c5576&scope=playlist-modify-private
