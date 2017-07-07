@@ -1,3 +1,4 @@
+from flask import Flask
 from bs4 import BeautifulSoup
 import datetime as dt
 import requests
