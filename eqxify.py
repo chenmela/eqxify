@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, redirect, request, session
 from bs4 import BeautifulSoup
 import datetime as dt
 import requests
@@ -6,6 +6,10 @@ from random import SystemRandom
 from requests_oauthlib import OAuth2Session
 
 app = Flask(__name__)
+#client_id = <insert id here>  
+#client_secret = <insert secret here>
+redirect_uri = "http://127.0.0.1:5000/callback"
+scope = "playlist-modify-private"
 
 def scrapeData():
 	times = ['12:00am', '12:30am', '1:00am', '1:30am', '2:00am',
@@ -22,8 +26,7 @@ def scrapeData():
 
 	#Make requests for every 30-min interval in the past week
 	for x in range(7):
-		day = day - d
-		t.timedelta(days=1)
+		day = day - dt.timedelta(days=1)
 
 		#Format date as MM/DD/YYYY
 		date = day.strftime("%m/%d/%Y")
@@ -45,6 +48,36 @@ def scrapeData():
 				text = s["title"]
 				song = text.split(" - ")[0]
 				artist = text.split(" - ")[1]
+
 @app.route('/')
-def spotifyOAuth():
-	clientID = ""
+def spotify():
+	response_type = "code"
+	base_url = "https://accounts.spotify.com/authorize"
+	
+	oauth = OAuth2Session(client_id=client_id, redirect_uri=redirect_uri, scope=scope)
+	
+	auth_url, state = oauth.authorization_url(url=base_url, state=state)
+	session['oauth_state'] = state
+	session.modified = True	
+	return redirect(auth_url)
+
+@app.route('/callback', methods=['GET'])
+def callback():
+	token_url = "https://accounts.spotify.com/api/token"
+	print(session['oauth_state'])	
+	#oauth = OAuth2Session(client_id=client_id, redirect_uri=redirect_uri, scope=scope, state=session['oauth_state'])
+	#token = oauth.fetch_token(token_url=token_url, client_secret=client_secret, authorization_response=request.url)
+	return "hi"
+def get_random_state():
+	possible = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	text = []
+	
+	#SystemRandom() implements os.urandom() which is crytographically
+	#secure
+	randomGen = SystemRandom()
+
+	for x in range(16):
+		text.append(randomGen.choice(possible))
+
+	state = "".join(text)
+	return state
