@@ -4,12 +4,18 @@ import datetime as dt
 import requests
 from random import SystemRandom
 from requests_oauthlib import OAuth2Session
+import base64
+import json
 
 app = Flask(__name__)
-#client_id = <insert id here>  
-#client_secret = <insert secret here>
+client_id = "c5339f8e511445639d2bb229746c5576" 
+client_secret = "24272a4c1671447d8adff36928c4975f" 
 redirect_uri = "http://127.0.0.1:5000/callback"
 scope = "playlist-modify-private"
+token_url = "https://accounts.spotify.com/api/token"
+authorize_url = "https://accounts.spotify.com/authorize"
+base_url = "https://api.spotify.com"
+user_id = "melaniechencp"
 
 def scrapeData():
 	times = ['12:00am', '12:30am', '1:00am', '1:30am', '2:00am',
@@ -52,32 +58,53 @@ def scrapeData():
 @app.route('/')
 def spotify():
 	response_type = "code"
-	base_url = "https://accounts.spotify.com/authorize"
 	
 	oauth = OAuth2Session(client_id=client_id, redirect_uri=redirect_uri, scope=scope)
 	
-	auth_url, state = oauth.authorization_url(url=base_url, state=state)
+	auth_url, state = oauth.authorization_url(url=authorize_url)
 	session['oauth_state'] = state
 	session.modified = True	
 	return redirect(auth_url)
 
 @app.route('/callback', methods=['GET'])
 def callback():
-	token_url = "https://accounts.spotify.com/api/token"
-	print(session['oauth_state'])	
-	#oauth = OAuth2Session(client_id=client_id, redirect_uri=redirect_uri, scope=scope, state=session['oauth_state'])
-	#token = oauth.fetch_token(token_url=token_url, client_secret=client_secret, authorization_response=request.url)
-	return "hi"
-def get_random_state():
-	possible = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	text = []
+	'''oauth = OAuth2Session(client_id=client_id, redirect_uri=redirect_uri, state=session['oauth_state'])
+	session['oauth_token'] = oauth.fetch_token(token_url=token_url, client_secret=client_secret, authorization_response=request.url)
+	return redirect(url_for('.update'))
+	'''
+	auth_token = request.args['code']
+	payload = {
+		"grant_type": "authorization_code",
+		"code": str(auth_token),
+		"redirect_uri": redirect_uri
+	}
+	base64encoded = base64.b64encode("{}:{}".format(client_id, client_secret))
+	header = {"Authorization": "Basic {}".format(base64encoded)}
+	r = requests.post(token_url, data=payload, headers=header)
+	response = json.loads(r.text)
+	session["access_token"] = response["access_token"]
+	session["refresh_token"] = response["refresh_token"]
 	
-	#SystemRandom() implements os.urandom() which is crytographically
-	#secure
-	randomGen = SystemRandom()
+	authorization_header = {
+		"Authorization":
+		"Bearer {}".format(session["access_token"]),
+		"Content-Type": "application/json"
+	}
 
-	for x in range(16):
-		text.append(randomGen.choice(possible))
+	create_playlist_endpoint = "{}/v1/users/{}/playlists".format(base_url)
+	
+	create_playlist_response = requests.post(
 
-	state = "".join(text)
-	return state
+
+@app.route('/update', methods=['GET'])
+def update():
+	oauth = OAuth2Session(client_id=client_id, redirect_uri=redirect_uri, scope=scope, token=session['oauth_token'])
+	extra = {
+		'client_id': client_id,
+		'client_secret': client_secret,
+	}
+	session['oauth_token'] = oauth.refresh_token(token_url=token_url, **extra)
+	return "hi"	
+
+
+app.secret_key = "abc"
