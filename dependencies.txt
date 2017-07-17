@@ -1,4 +1,3 @@
 pip install Flask
 pip install BeautifulSoup4
 pip install request
-pip install requests_oauthlib

@@ -1,110 +1,116 @@
-from flask import Flask, redirect, request, session
-from bs4 import BeautifulSoup
-import datetime as dt
-import requests
-from random import SystemRandom
-from requests_oauthlib import OAuth2Session
+#import statements
+from flask import Flask, redirect, request
+import urllib #Used for creating params section of request url
 import base64
+import requests
 import json
 
+#Flask app syntax
 app = Flask(__name__)
-client_id = "c5339f8e511445639d2bb229746c5576" 
-client_secret = "24272a4c1671447d8adff36928c4975f" 
-redirect_uri = "http://127.0.0.1:5000/callback"
+
+#Global variables
+client_id = ""
+client_secret = ""
+auth_url = "https://accounts.spotify.com/authorize"
+redirect_uri = "http://127.0.0.1:5000/callback"		
 scope = "playlist-modify-private"
-token_url = "https://accounts.spotify.com/api/token"
-authorize_url = "https://accounts.spotify.com/authorize"
-base_url = "https://api.spotify.com"
-user_id = "melaniechencp"
+show_dialog = True
+response_type = "code"
+grant_type = "authorization_code"
+access_token_url = "https://accounts.spotify.com/api/token"
+username = "melaniechencp"
+content_type = "application/json"
+playlist_name = "Created by eqxify"
 
-def scrapeData():
-	times = ['12:00am', '12:30am', '1:00am', '1:30am', '2:00am',
-	'2:30am', '3:00am', '3:30am', '4:00am', '4:30am', '5:00am',
-	'5:30am', '6:00am', '6:30am', '7:00am', '7:30am', '8:00am',
-	'8:30am', '9:00am', '9:30am', '10:00am', '10:30am', '11:00am',
-	'11:30am', '12:00pm', '12:30pm', '1:00pm', '1:30pm', '2:00pm',
-	'2:30pm', '3:00pm', '3:30pm', '4:00pm', '4:30pm', '5:00pm',
-	'5:30pm', '6:00pm', '6:30pm', '7:00pm', '7:30pm', '8:00pm',
-	'8:30pm', '9:00pm', '9:30pm', '10:00pm', '10:30pm', '11:00pm',
-	'11:30pm']
+auth_request_params = {
+	"client_id": client_id, 
+	"response_type": response_type,
+	"redirect_uri": redirect_uri,
+	"show_dialog": str(show_dialog).lower()
+}
 
-	day = dt.date.today()
-
-	#Make requests for every 30-min interval in the past week
-	for x in range(7):
-		day = day - dt.timedelta(days=1)
-
-		#Format date as MM/DD/YYYY
-		date = day.strftime("%m/%d/%Y")
-		
-		#Get time from above list
-		for time in times:
-
-			payload = {'playlisttime': time, 'playlistdate': date, 
-			'submitbtn': "Update"}
-			
-			r = requests.post("http://www.weqx.com/song-history/",
-			data=payload)
-			
-			#Parse through text to get all songs from past week 
-			bs = BeautifulSoup(r.text, "html.parser")
-			songs = bs.find_all("div", class_="songhistoryitem")
-			
-			for s in songs:
-				text = s["title"]
-				song = text.split(" - ")[0]
-				artist = text.split(" - ")[1]
-
-@app.route('/')
-def spotify():
-	response_type = "code"
+#Helper function to generate random state
+def get_random_state():
+	possible = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	text = []
 	
-	oauth = OAuth2Session(client_id=client_id, redirect_uri=redirect_uri, scope=scope)
-	
-	auth_url, state = oauth.authorization_url(url=authorize_url)
-	session['oauth_state'] = state
-	session.modified = True	
-	return redirect(auth_url)
+	#SystemRandom() implements os.urandom() which is 
+	#crytographically secure
+	randomGen = SystemRandom()
 
-@app.route('/callback', methods=['GET'])
+	for x in range(16):
+		text.append(randomGen.choice(possible))
+
+	state = "".join(text)
+	return state
+
+#Spotify Authorization Code Flow at https://developer.spotify.com/web-api/authorization-guide/#authorization_code_flow
+
+@app.route("/")
+def home():
+	#Step 1: App requests authorization to access user data
+	#When control reaches this route, we redirect to a 
+	#Spotify authorization page (specified by auth request url)
+	
+	#.join() joins all elements of a sequence with the
+	#specified string
+	auth_request_args = "&".join(["{}={}".format(key,urllib.quote(value)) for key, value in auth_request_params.iteritems()])
+	auth_request_url = "{}/?{}".format(auth_url, auth_request_args)
+	#Essentially a GET request
+	return redirect(auth_request_url)
+
+#Step 2: Occurs outside our app. The user is asked to authorize
+#access within the specified scopes.
+
+#Step 3: Also occurs outside our app. The user is redirected back
+#to the redirect_uri supplied in the parameters of our request.
+
+@app.route("/callback")
 def callback():
-	'''oauth = OAuth2Session(client_id=client_id, redirect_uri=redirect_uri, state=session['oauth_state'])
-	session['oauth_token'] = oauth.fetch_token(token_url=token_url, client_secret=client_secret, authorization_response=request.url)
-	return redirect(url_for('.update'))
-	'''
-	auth_token = request.args['code']
-	payload = {
-		"grant_type": "authorization_code",
-		"code": str(auth_token),
-		"redirect_uri": redirect_uri
+	#Step 4: Our application requests refresh and access tokens
+	#We use request.args to get this info because the spotify
+	#client made a request to our server.
+	auth_code = request.args["code"]
+	#TODO: figure out state security
+	#state = request.args["state"]
+	access_params = {
+		"grant_type": grant_type,
+		"code": str(auth_code),
+		"redirect_uri": redirect_uri	
 	}
-	base64encoded = base64.b64encode("{}:{}".format(client_id, client_secret))
-	header = {"Authorization": "Basic {}".format(base64encoded)}
-	r = requests.post(token_url, data=payload, headers=header)
-	response = json.loads(r.text)
-	session["access_token"] = response["access_token"]
-	session["refresh_token"] = response["refresh_token"]
 	
-	authorization_header = {
-		"Authorization":
-		"Bearer {}".format(session["access_token"]),
-		"Content-Type": "application/json"
-	}
+	access_header_vals = base64.b64encode("{}:{}".format(
+	client_id, client_secret))
+	access_headers = {"Authorization": "Basic {}".format(
+	access_header_vals)}
+	
+	#A POST request
+	access_request = requests.post(access_token_url,
+	data = access_params, headers=access_headers)
+	
+	#Step 5: Tokens are returned to our application.
+	#We use json.loads to get this info because we made the
+	#request to the spotify server.
+	access_response = json.loads(access_request.text)
+	access_token = access_response["access_token"]
+	token_type = access_response["token_type"]
+	expires_in = access_response["expires_in"]
+	refresh_token = access_response["refresh_token"]
+	
+	#Step 6: Use the access token to access the Spotify Web API
+	#Specifically, we will create a playlist.
 
-	create_playlist_endpoint = "{}/v1/users/{}/playlists".format(base_url)
+	#TODO: Make username variable and specific to user
+	
+	create_playlist_endpoint = "https://api.spotify.com/v1/users/{}/playlists".format(username)
+
+	create_playlist_headers = {
+		"Authorization": session["access_token"],
+		"Content-Type": content_type
+	}
 	
 	create_playlist_response = requests.post(
-
-
-@app.route('/update', methods=['GET'])
-def update():
-	oauth = OAuth2Session(client_id=client_id, redirect_uri=redirect_uri, scope=scope, token=session['oauth_token'])
-	extra = {
-		'client_id': client_id,
-		'client_secret': client_secret,
-	}
-	session['oauth_token'] = oauth.refresh_token(token_url=token_url, **extra)
-	return "hi"	
-
-
+	create_playlist_endpoint, data=create_playlist_params,
+	headers=create_playlist_headers, json = {"name": name})
+ 
 app.secret_key = "abc"
