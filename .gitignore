@@ -1,1 +1,3 @@
-dev2.py
+dev2.py*
+__pycache__/
+eqxifyvenv
