@@ -86,18 +86,35 @@ def callback():
 	
 	#A POST request
 	access_request = requests.post(access_token_url,
-	data = access_params, headers=access_headers)
+	data=access_params, headers=access_headers)
 	
 	#Step 5: Tokens are returned to our application.
 	#We use json.loads to get this info because we made the
 	#request to the spotify server.
 	access_response = json.loads(access_request.text)
-	access_token = access_response["access_token"]
-	token_type = access_response["token_type"]
-	expires_in = access_response["expires_in"]
-	refresh_token = access_response["refresh_token"]
+	access_token = "BQB4OXQ5_TPKIf23MTSaQ5tSc63j19QKqW4gVhBygILkRge_SGwWSMqIOrTRxh3LzhWikhEnNtzLpHoiRCwgqD8q33VbXOFnoEij-K91t58fP5VaH5X4sOTGG-SEsi9ur8Cei4SwQtE2F-zM-utuYvEM59TpVd6smAOXnSzJo-c3dfK0f9eNf5d0VQ0LHsnXaEAJM7W8i3LmY5oPNRY"
+	#access_token = access_response["access_token"]
+	#token_type = access_response["token_type"]
+	#expires_in = access_response["expires_in"]
+	#refresh_token = access_response["refresh_token"]
+	refresh_token = "AQAwNtReO7Qdc74Ly132Te9d1gWBkWgwvMxddx9DHZytDPH6LQRKGozXBfU9GmVoi3M7nDJeb_E-IgNRsFbhEs9hHtt1DIHg2LMgb_fn-mVCmhTRiS02Y4vlUmYTo1EwJmM"
+
+	#Step 6: Request access token from refresh token
+	refresh_params = {
+		"grant_type": "refresh_token",
+		"refresh_token" : refresh_token
+	}
 	
-	#Step 6: Use the access token to access the Spotify Web API
+	refresh_headers = access_headers
+	refresh_token_url = access_token_url
+	refresh_request = requests.post(refresh_token_url,
+	data=refresh_params, headers=refresh_headers)
+	
+	refresh_response = json.loads(refresh_request.text)
+	access_token = refresh_response["access_token"]
+
+ 
+	#Step 7: Use the access token to access the Spotify Web API
 	#Specifically, we will create a playlist.
 
 	#TODO: Make username variable and specific to user
@@ -105,12 +122,14 @@ def callback():
 	create_playlist_endpoint = "https://api.spotify.com/v1/users/{}/playlists".format(username)
 
 	create_playlist_headers = {
-		"Authorization": session["access_token"],
+		"Authorization": access_token,
 		"Content-Type": content_type
 	}
 	
-	create_playlist_response = requests.post(
-	create_playlist_endpoint, data=create_playlist_params,
-	headers=create_playlist_headers, json = {"name": name})
- 
+	create_playlist_request = requests.post(
+	create_playlist_endpoint, headers=create_playlist_headers, 
+	json = {"name": playlist_name})
+	create_playlist_response = json.loads(create_playlist_request.text)
+	return create_playlist_request.content
+
 app.secret_key = "abc"
