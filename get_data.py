@@ -1,8 +1,11 @@
 from bs4 import BeautifulSoup
 import requests
 import datetime as dt
+import collections
 
+TOP_X_HITS = 25
 def scrape_data():
+	songs_and_artists = []
 	times = ['12:00am', '12:30am', '1:00am', '1:30am', '2:00am',
 	'2:30am', '3:00am', '3:30am', '4:00am', '4:30am', '5:00am',
 	'5:30am', '6:00am', '6:30am', '7:00am', '7:30am', '8:00am',
@@ -22,7 +25,6 @@ def scrape_data():
 		#Format date as MM/DD/YYYY
 		date = day.strftime("%m/%d/%Y")
 		
-		print str(date)	
 		#Get time from above list
 		for time in times:
 
@@ -34,16 +36,18 @@ def scrape_data():
 			
 			#Parse through text to get all songs from past week 
 			bs = BeautifulSoup(r.text, "html.parser")
-			songs = bs.find_all("div", class_="songhistoryitem")
-			for s in songs:
+			eqx_songs = bs.find_all("div", class_="songhistoryitem")
+			for s in eqx_songs:
 				try:
 					text = s["title"].encode("utf-8")
-					song = text.split(" - ")[0]
-					artist = text.split(" - ")[1]
-					
+					artist = text.split(" - ")[0]
+					song = text.split(" - ")[1]
+					songs_and_artists.append((song, artist))
 				except:
 					continue
-				
+	counter = collections.Counter(songs_and_artists)
+	for song_and_artist, count in counter.most_common(TOP_X_HITS):
+		print song
 
 def main():
 	scrape_data()
