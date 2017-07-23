@@ -4,13 +4,14 @@ import urllib #Used for creating params section of request url
 import base64
 import requests
 import json
+import eqx
 
 #Flask app syntax
 app = Flask(__name__)
 
 #Global variables
 client_id = ""
-client_secret = "" 
+client_secret = ""
 auth_url = "https://accounts.spotify.com/authorize"
 redirect_uri = "http://127.0.0.1:5000/callback"		
 scope = "playlist-modify-private"
@@ -26,6 +27,7 @@ auth_request_params = {
 	"client_id": client_id, 
 	"response_type": response_type,
 	"redirect_uri": redirect_uri,
+	"scope": scope,
 	"show_dialog": str(show_dialog).lower()
 }
 
@@ -92,10 +94,12 @@ def callback():
 	#We use json.loads to get this info because we made the
 	#request to the spotify server.
 	access_response = json.loads(access_request.text)
-	access_token = access_response["access_token"]
-	token_type = access_response["token_type"]
-	expires_in = access_response["expires_in"]
-	refresh_token = access_response["refresh_token"]
+	access_token = "BQBMEOfG_RTPcykEaTow39hSQa4MeI2Nz2YSiP3bc351iU00xN4MqxLLgxDRTzqoFrDHpxZTet7J4ZN2YdRjfwtNfI-ZmgYMDL-CPGnHi6rMPccDpOKh0Ulan8DNiYtLlqGPApU7xe8GnqMJGcO0QCVuwyQSRC9diKxGvgivfhG4kQqfHQKnYYYB8fZ12JpL2NAdOpPm6SKp_XqN_QE"
+	#access_token = access_response["access_token"]
+	#token_type = access_response["token_type"]
+	#expires_in = access_response["expires_in"]
+	#refresh_token = access_response["refresh_token"]
+	refresh_token = "AQAZgJ0aCmju-Vvxi7PPaTnI2KuqqeZ0Ygcpv4WX69smBUDF6yxY69MXGo1juCs8tQiD4wNZe0EkX-EtO4Db9vkPp0IFreX6T2uweUmrPHPH83utHFyUpXXdYknTODJbsH8"
 
 	#Step 6: Request access token from refresh token
 	refresh_params = {
@@ -110,24 +114,37 @@ def callback():
 	
 	refresh_response = json.loads(refresh_request.text)
 	access_token = refresh_response["access_token"]
+	
+	#Step 7: Get data from EQX website	
+	#scraper = eqx.EQXDataScraper()
+	#scraper.scrape_data()
 
- 
 	#Step 7: Use the access token to access the Spotify Web API
 	#Specifically, we will create a playlist.
 
 	#TODO: Make username variable and specific to user
+	'''p = {
+		"Authorization": "Bearer {}".format(access_token)
+	}
+	r = requests.get("https://api.spotify.com/v1/me", data=p)
+	resp = json.loads(r.text)
+	return str(resp)'''
 	
 	create_playlist_endpoint = "https://api.spotify.com/v1/users/{}/playlists".format(username)
-
 	create_playlist_headers = {
-		"Authorization": access_token,
+		"Authorization": "Bearer {}".format(access_token),
 		"Content-Type": content_type
 	}
-	
+	create_playlist_payload = {
+		"name": "hello"
+	}	
 	create_playlist_request = requests.post(
-	create_playlist_endpoint, headers=create_playlist_headers, 
-	json = {"name": playlist_name})
+	create_playlist_endpoint, headers=create_playlist_headers,
+	json=create_playlist_payload)
 	create_playlist_response = json.loads(create_playlist_request.text)
 	return create_playlist_request.content
+
+if __name__ == '__main__':    	
+	app.run(debug=True)
 
 app.secret_key = "abc"

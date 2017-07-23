@@ -3,14 +3,14 @@ import requests
 import datetime as dt
 import collections
 
-class EqxDataScraper:
+class EQXDataScraper:
 	#Constructor
 	def __init__(self):
 		self.num_hits = 25
 		self.top_hits = []
 
 	#Class method
-	def scrape_data():
+	def scrape_data(self):
 		songs_and_artists = []
 		times = ['12:00am', '12:30am', '1:00am', '1:30am', '2:00am',
 		'2:30am', '3:00am', '3:30am', '4:00am', '4:30am', '5:00am',
