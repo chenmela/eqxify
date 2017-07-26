@@ -1,10 +1,11 @@
 #import statements
-from flask import Flask, redirect, request
+from flask import Flask, redirect, request, url_for, session
 import urllib #Used for creating params section of request url
 import base64
 import requests
 import json
 import eqx
+import io
 
 #Flask app syntax
 app = Flask(__name__)
@@ -101,24 +102,30 @@ def callback():
 	#We use json.loads to get this info because we made the
 	#request to the spotify server.
 	access_response = json.loads(access_request.text)
-	access_token = access_response["access_token"]
-	token_type = access_response["token_type"]
-	expires_in = access_response["expires_in"]
-	refresh_token = access_response["refresh_token"]
+	
+	#If first time obtaining access_token, write to a file
+	if ("access_token" in request.args):
+		access_token = access_response["access_token"]
+		token_type = access_response["token_type"]
+		scope = access_response["scope"]
+		expires_in = access_response["expires_in"]
+		refresh_token = access_response["refresh_token"]
+		
+		#Write access token, refresh token and metadata to a file
+		token_dict = {
+			"access_token" : access_token,
+			"token_type" : token_type,
+			"expires_in" : expires_in,
+			"refresh_token" : refresh_token
+		}
+		iostream = open("tokens.txt", 'w')
+		json.dump(token_dict, iostream)
+		iostream.close()
 
-	#Step 6: Request access token from refresh token
-	'''refresh_params = {
-		"grant_type": "refresh_token",
-		"refresh_token" : refresh_token
-	}
-	
-	refresh_headers = access_headers
-	refresh_token_url = access_token_url
-	refresh_request = requests.post(refresh_token_url,
-	data=refresh_params, headers=refresh_headers)
-	
-	refresh_response = json.loads(refresh_request.text)
-	access_token = refresh_response["access_token"]'''
+		#Save access token for different function calls within the same session
+		session["access_token"] = access_token
+	else:
+		return redirect(url_for("refresh"))
 	
 	#Step 7: Get data from EQX website	
 	#scraper = eqx.EQXDataScraper()
@@ -143,6 +150,47 @@ def callback():
 	create_playlist_response = json.loads(create_playlist_request.text)
 	return create_playlist_request.content
 
+@app.route("/refresh")
+def refresh():
+	#Open stored values of access_token if unable to request it
+	iostream = open("tokens.txt", 'r')
+	token_dict = json.load(iostream)
+
+	#Step 6: Request access token from refresh token
+	refresh_params = {
+		"grant_type": "refresh_token",
+		"refresh_token" : token_dict["refresh_token"]
+	}
+
+	#Create headers and make request for refresh token
+	refresh_header_vals = base64.b64encode("{}:{}".format(
+	client_id, client_secret))
+	refresh_headers = {"Authorization": "Basic {}".format(
+	refresh_header_vals)}
+	
+	refresh_token_url = access_token_url
+	refresh_request = requests.post(refresh_token_url,
+	data=refresh_params, headers=refresh_headers)
+	
+	refresh_response = json.loads(refresh_request.text)
+	if ("access_token" not in refresh_response):
+		return "Token could not be obtained and/or refreshed."
+
+ 	#If refresh request was successful, update session access_token and file
+	session["access_token"] = refresh_response["access_token"]
+	iostream.close()
+	
+	token_dict = {
+		"access_token" : refresh_response["access_token"],
+		"token_type" : refresh_response["token_type"],
+		"scope" : refresh_response["scope"],
+		"expires_in" : refresh_response["expires_in"]
+	}
+	iostream = open("tokens.txt", 'w')
+	json.dump(token_dict, iostream)
+	iostream.close()
+	
+	
 if __name__ == '__main__':    	
 	app.run(debug=True)
 

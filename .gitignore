@@ -1,3 +1,5 @@
 dev2.py*
 __pycache__/
 eqxifyvenv
+*.pyc
+tokens.txt
