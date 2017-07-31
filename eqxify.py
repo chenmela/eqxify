@@ -11,26 +11,22 @@ import io
 app = Flask(__name__)
 
 #Global variables
-client_id = ""
-client_secret = ""
-auth_url = "https://accounts.spotify.com/authorize"
-app_uri = "http://127.0.0.1:5000/"
-redirect_uri = "http://127.0.0.1:5000/callback"		
-scope = "playlist-modify-private playlist-modify-public"
-show_dialog = True
-response_type = "code"
-grant_type = "authorization_code"
-access_token_url = "https://accounts.spotify.com/api/token"
-username = "melaniechencp"
-content_type = "application/json"
-playlist_name = "Created by eqxify"
-
-auth_request_params = {
-	"client_id": client_id, 
-	"response_type": response_type,
-	"redirect_uri": redirect_uri,
-	"scope": scope,
-	"show_dialog": str(show_dialog).lower()
+CLIENT_ID = ""
+CLIENT_SECRET = ""
+AUTH_URL = "https://accounts.spotify.com/authorize"
+APP_URI = "http://127.0.0.1:5000/"
+REDIRECT_URI = "http://127.0.0.1:5000/auth"		
+SCOPE = "playlist-modify-private playlist-modify-public"
+SHOW_DIALOG = True
+ACCESS_TOKEN_URL = "https://accounts.spotify.com/api/token"
+CONTENT_TYPE = "application/json"
+USER_ID = ""
+AUTH_REQUEST_PARAMS = {
+	"client_id": CLIENT_ID, 
+	"response_type": "code",
+	"redirect_uri": REDIRECT_URI,
+	"scope": SCOPE,
+	"show_dialog": str(SHOW_DIALOG).lower()
 }
 
 #Helper function to generate random state
@@ -58,8 +54,8 @@ def home():
 	
 	#.join() joins all elements of a sequence with the
 	#specified string
-	auth_request_args = "&".join(["{}={}".format(key,urllib.quote(value)) for key, value in auth_request_params.iteritems()])
-	auth_request_url = "{}/?{}".format(auth_url, auth_request_args)
+	auth_request_args = "&".join(["{}={}".format(key,urllib.quote(value)) for key, value in AUTH_REQUEST_PARAMS.iteritems()])
+	auth_request_url = "{}/?{}".format(AUTH_URL, auth_request_args)
 	#Essentially a GET request
 	return redirect(auth_request_url)
 
@@ -69,32 +65,32 @@ def home():
 #Step 3: Also occurs outside our app. The user is redirected back
 #to the redirect_uri supplied in the parameters of our request.
 
-@app.route("/callback")
-def callback():
+@app.route("/auth")
+def auth():
 	#Step 4: Our application requests refresh and access tokens
 	#We use request.args to get this info because the spotify
 	#client made a request to our server.
 	
 	#Check to see if error has occurred
 	if ("code" not in request.args):
-		return "You have not authorized access to eqxify. Revisit {} to try again.".format(app_uri)
+		return "You have not authorized access to eqxify. Revisit {} to try again.".format(APP_URI)
 
 	auth_code = request.args["code"]
 		
 	#state = request.args["state"]
 	access_params = {
-		"grant_type": grant_type,
+		"grant_type": "authorization_code",
 		"code": str(auth_code),
-		"redirect_uri": redirect_uri	
+		"redirect_uri": REDIRECT_URI	
 	}
 	
 	access_header_vals = base64.b64encode("{}:{}".format(
-	client_id, client_secret))
+	CLIENT_ID, CLIENT_SECRET))
 	access_headers = {"Authorization": "Basic {}".format(
 	access_header_vals)}
 	
 	#A POST request
-	access_request = requests.post(access_token_url,
+	access_request = requests.post(ACCESS_TOKEN_URL,
 	data=access_params, headers=access_headers)
 	
 	#Step 5: Tokens are returned to our application.
@@ -106,7 +102,7 @@ def callback():
 	if ("access_token" in access_response):
 		access_token = access_response["access_token"]
 		token_type = access_response["token_type"]
-		scope = access_response["scope"]
+		SCOPE = access_response["scope"]
 		expires_in = access_response["expires_in"]
 		refresh_token = access_response["refresh_token"]
 		
@@ -142,11 +138,11 @@ def refresh():
 
 	#Create headers and make request for refresh token
 	refresh_header_vals = base64.b64encode("{}:{}".format(
-	client_id, client_secret))
+	CLIENT_ID, CLIENT_SECRET))
 	refresh_headers = {"Authorization": "Basic {}".format(
 	refresh_header_vals)}
 	
-	refresh_token_url = access_token_url
+	refresh_token_url = ACCESS_TOKEN_URL
 	refresh_request = requests.post(refresh_token_url,
 	data=refresh_params, headers=refresh_headers)
 	
@@ -174,13 +170,15 @@ def add_songs():
 	#scraper = eqx.EQXDataScraper()
 	#scraper.scrape_data()
 
-	#Step 8: Use the access token to access the Spotify Web API
-	#Specifically, we will create a playlist and add songs.
+	#Step #8: Get username of user who granted access.
+	redirect(url_for("get_user"))
 
-	create_playlist_endpoint = "https://api.spotify.com/v1/users/{}/playlists".format(username)
+	#Step 9: Use the access token and username to access the Spotify Web API
+	#Specifically, we will create a playlist and add songs.
+	create_playlist_endpoint = "https://api.spotify.com/v1/users/{}/playlists".format(USER_ID)
 	create_playlist_headers = {
 		"Authorization": "Bearer {}".format(session["access_token"]),
-		"Content-Type": content_type
+		"Content-Type": CONTENT_TYPE
 	}
 	create_playlist_payload = {
 		"name": "hello"
@@ -190,7 +188,20 @@ def add_songs():
 	json=create_playlist_payload)
 	create_playlist_response = json.loads(create_playlist_request.text)
 	return create_playlist_request.content
-	
+
+@app.route("/get_user")
+def get_user():
+	return "h"
+	get_user_endpoint = "https://api.spotify.com/v1/me"
+	get_user_headers = {
+		"Authorization": "Bearer {}".format(session["access_token"])
+	}
+	get_user_request = requests.get(get_user_endpoint, headers=get_user_headers)
+	get_user_response = json.loads(get_user_request.text)
+	if ("id" not in get_user_response):
+		redirect(url_for("refresh"))
+	USER_ID = get_user_response["id"]
+
 if __name__ == '__main__':    	
 	app.run(debug=True)
 
