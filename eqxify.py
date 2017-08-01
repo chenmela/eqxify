@@ -180,6 +180,7 @@ def add_songs():
 		"Authorization": "Bearer {}".format(session["access_token"]),
 		"Content-Type": CONTENT_TYPE
 	}
+	#TODO: Use EchoNest API calls here!
 	create_playlist_payload = {
 		"name": "hello"
 	}	
