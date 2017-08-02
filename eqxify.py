@@ -6,13 +6,11 @@ import requests
 import json
 import eqx
 import io
-
+from random import SystemRandom
 #Flask app syntax
 app = Flask(__name__)
 
 #Global variables
-CLIENT_ID = ""
-CLIENT_SECRET = ""
 AUTH_URL = "https://accounts.spotify.com/authorize"
 APP_URI = "http://127.0.0.1:5000/"
 REDIRECT_URI = "http://127.0.0.1:5000/auth"		
@@ -20,7 +18,6 @@ SCOPE = "playlist-modify-private playlist-modify-public"
 SHOW_DIALOG = True
 ACCESS_TOKEN_URL = "https://accounts.spotify.com/api/token"
 CONTENT_TYPE = "application/json"
-USER_ID = ""
 AUTH_REQUEST_PARAMS = {
 	"client_id": CLIENT_ID, 
 	"response_type": "code",
@@ -54,6 +51,8 @@ def home():
 	
 	#.join() joins all elements of a sequence with the
 	#specified string
+	session["state"] = get_random_state()
+	AUTH_REQUEST_PARAMS["state"] = session["state"]
 	auth_request_args = "&".join(["{}={}".format(key,urllib.quote(value)) for key, value in AUTH_REQUEST_PARAMS.iteritems()])
 	auth_request_url = "{}/?{}".format(AUTH_URL, auth_request_args)
 	#Essentially a GET request
@@ -74,6 +73,9 @@ def auth():
 	#Check to see if error has occurred
 	if ("code" not in request.args):
 		return "You have not authorized access to eqxify. Revisit {} to try again.".format(APP_URI)
+	#Check to see that request and repsonse originated in same browser
+	if (request.args["state"] != session["state"]):
+		return "State of request and response do not match. Revisit {} to try again.".format(APP_URI)
 
 	auth_code = request.args["code"]
 		
@@ -167,23 +169,47 @@ def refresh():
 @app.route("/add_songs")
 def add_songs():
 	#Step 7: Get data from EQX website	
-	#scraper = eqx.EQXDataScraper()
-	#scraper.scrape_data()
+	scraper = eqx.EQXDataScraper()
+	scraper.scrape_data()
 
-	#Step #8: Get username of user who granted access.
+	#Step 8: Get username of user who granted access.
 	redirect(url_for("get_user"))
 
-	#Step 9: Use the access token and username to access the Spotify Web API
+	#Step 9: Get Spotify track IDs for every song added to the top 25 hits.
+	search_track_id_headers = {
+		"Authorization": "Bearer {}".format(session["access_token"])
+	}
+	track_ids = []
+	for hit in scraper.top_hits:
+		hit = ["Missed the Boat", "Modest Mouse"]
+		track_artist = [term.replace(" ", "%20") for term in hit]
+		query_string_params = {
+			"track" : track_artist[0],
+			"artist" : track_artist[1]
+		}
+		query_string = "%20".join(["{}:{}".format(key, value) for key, value in query_string_params.iteritems()])
+		search_track_id_endpoint = "https://api.spotify.com/v1/search&"
+		search_track_id_params = {
+			"q" : query_string,
+			"type" : "track",
+			"limit" : "1"
+		}
+		search_track_id_endpoint += "&".join(["{}={}".format(key, value) for key, value in search_track_id_params.iteritems()])
+		search_track_id_request = requests.get(search_track_id_endpoint, headers=search_track_id_headers)
+		search_track_id_response = json.loads(search_track_id_request.text)
+		return str(search_track_id_response)
+		#track_ids.append()
+	#Step 10: Use the access token and username to access the Spotify Web API
 	#Specifically, we will create a playlist and add songs.
-	create_playlist_endpoint = "https://api.spotify.com/v1/users/{}/playlists".format(USER_ID)
+	create_playlist_endpoint = "https://api.spotify.com/v1/users/{}/playlists".format(session["user_id"])
 	create_playlist_headers = {
 		"Authorization": "Bearer {}".format(session["access_token"]),
 		"Content-Type": CONTENT_TYPE
 	}
-	#TODO: Use EchoNest API calls here!
 	create_playlist_payload = {
 		"name": "hello"
-	}	
+	}
+	
 	create_playlist_request = requests.post(
 	create_playlist_endpoint, headers=create_playlist_headers,
 	json=create_playlist_payload)
@@ -192,7 +218,6 @@ def add_songs():
 
 @app.route("/get_user")
 def get_user():
-	return "h"
 	get_user_endpoint = "https://api.spotify.com/v1/me"
 	get_user_headers = {
 		"Authorization": "Bearer {}".format(session["access_token"])
@@ -201,7 +226,7 @@ def get_user():
 	get_user_response = json.loads(get_user_request.text)
 	if ("id" not in get_user_response):
 		redirect(url_for("refresh"))
-	USER_ID = get_user_response["id"]
+	session["user_id"] = get_user_response["id"]
 
 if __name__ == '__main__':    	
 	app.run(debug=True)

@@ -1,235 +1,56 @@
-#import statements
-from flask import Flask, redirect, request, url_for, session
-import urllib #Used for creating params section of request url
-import base64
+from bs4 import BeautifulSoup
 import requests
-import json
-import eqx
-import io
-from random import SystemRandom
-#Flask app syntax
-app = Flask(__name__)
+import datetime as dt
+import collections
 
-#Global variables
-AUTH_URL = "https://accounts.spotify.com/authorize"
-APP_URI = "http://127.0.0.1:5000/"
-REDIRECT_URI = "http://127.0.0.1:5000/auth"		
-SCOPE = "playlist-modify-private playlist-modify-public"
-SHOW_DIALOG = True
-ACCESS_TOKEN_URL = "https://accounts.spotify.com/api/token"
-CONTENT_TYPE = "application/json"
-AUTH_REQUEST_PARAMS = {
-	"client_id": CLIENT_ID, 
-	"response_type": "code",
-	"redirect_uri": REDIRECT_URI,
-	"scope": SCOPE,
-	"show_dialog": str(SHOW_DIALOG).lower()
-}
+class EQXDataScraper:
+	#Constructor
+	def __init__(self):
+		self.num_hits = 25
+		self.top_hits = []
 
-#Helper function to generate random state
-def get_random_state():
-	possible = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	text = []
-	
-	#SystemRandom() implements os.urandom() which is 
-	#crytographically secure
-	randomGen = SystemRandom()
+	#Class method
+	def scrape_data(self):
+		songs_and_artists = []
+		times = ['12:00am', '12:30am', '1:00am', '1:30am', '2:00am',
+		'2:30am', '3:00am', '3:30am', '4:00am', '4:30am', '5:00am',
+		'5:30am', '6:00am', '6:30am', '7:00am', '7:30am', '8:00am',
+		'8:30am', '9:00am', '9:30am', '10:00am', '10:30am', '11:00am',
+		'11:30am', '12:00pm', '12:30pm', '1:00pm', '1:30pm', '2:00pm',
+		'2:30pm', '3:00pm', '3:30pm', '4:00pm', '4:30pm', '5:00pm',
+		'5:30pm', '6:00pm', '6:30pm', '7:00pm', '7:30pm', '8:00pm',
+		'8:30pm', '9:00pm', '9:30pm', '10:00pm', '10:30pm', '11:00pm',
+		'11:30pm']
 
-	for x in range(16):
-		text.append(randomGen.choice(possible))
+		day = dt.date.today()
 
-	state = "".join(text)
-	return state
+		#Make requests for every 30-min interval in the past week
+		for x in range(7):
+			day = day - dt.timedelta(days=1)
 
-#Spotify Authorization Code Flow at https://developer.spotify.com/web-api/authorization-guide/#authorization_code_flow
+			#Format date as MM/DD/YYYY
+			date = day.strftime("%m/%d/%Y")
+			
+			#Get time from above list
+			for time in times:
 
-@app.route("/")
-def home():
-	#Step 1: App requests authorization to access user data
-	#When control reaches this route, we redirect to a 
-	#Spotify authorization page (specified by auth request url)
-	
-	#.join() joins all elements of a sequence with the
-	#specified string
-	session["state"] = get_random_state()
-	AUTH_REQUEST_PARAMS["state"] = session["state"]
-	auth_request_args = "&".join(["{}={}".format(key,urllib.quote(value)) for key, value in AUTH_REQUEST_PARAMS.iteritems()])
-	auth_request_url = "{}/?{}".format(AUTH_URL, auth_request_args)
-	#Essentially a GET request
-	return redirect(auth_request_url)
-
-#Step 2: Occurs outside our app. The user is asked to authorize
-#access within the specified scopes.
-
-#Step 3: Also occurs outside our app. The user is redirected back
-#to the redirect_uri supplied in the parameters of our request.
-
-@app.route("/auth")
-def auth():
-	#Step 4: Our application requests refresh and access tokens
-	#We use request.args to get this info because the spotify
-	#client made a request to our server.
-	
-	#Check to see if error has occurred
-	if ("code" not in request.args):
-		return "You have not authorized access to eqxify. Revisit {} to try again.".format(APP_URI)
-	#Check to see that request and repsonse originated in same browser
-	if (request.args["state"] != session["state"]):
-		return "State of request and response do not match. Revisit {} to try again.".format(APP_URI)
-
-	auth_code = request.args["code"]
-		
-	#state = request.args["state"]
-	access_params = {
-		"grant_type": "authorization_code",
-		"code": str(auth_code),
-		"redirect_uri": REDIRECT_URI	
-	}
-	
-	access_header_vals = base64.b64encode("{}:{}".format(
-	CLIENT_ID, CLIENT_SECRET))
-	access_headers = {"Authorization": "Basic {}".format(
-	access_header_vals)}
-	
-	#A POST request
-	access_request = requests.post(ACCESS_TOKEN_URL,
-	data=access_params, headers=access_headers)
-	
-	#Step 5: Tokens are returned to our application.
-	#We use json.loads to get this info because we made the
-	#request to the spotify server.
-	access_response = json.loads(access_request.text)
-	
-	#If first time obtaining access_token, write to a file
-	if ("access_token" in access_response):
-		access_token = access_response["access_token"]
-		token_type = access_response["token_type"]
-		SCOPE = access_response["scope"]
-		expires_in = access_response["expires_in"]
-		refresh_token = access_response["refresh_token"]
-		
-		#Write access token, refresh token and metadata to a file
-		token_dict = {
-			"access_token" : access_token,
-			"token_type" : token_type,
-			"expires_in" : expires_in,
-			"refresh_token" : refresh_token
-		}
-		iostream = open("tokens.txt", 'w')
-		json.dump(token_dict, iostream)
-		iostream.close()
-
-		#Save access token for different function calls within the same session
-		session["access_token"] = access_token
-	else:
-		redirect(url_for("refresh"))
-	
-	return redirect(url_for("add_songs"))
-	
-@app.route("/refresh")
-def refresh():
-	#Open stored values of access_token if unable to request it
-	iostream = open("tokens.txt", 'r')
-	token_dict = json.load(iostream)
-
-	#Step 6: Request access token from refresh token
-	refresh_params = {
-		"grant_type": "refresh_token",
-		"refresh_token" : token_dict["refresh_token"]
-	}
-
-	#Create headers and make request for refresh token
-	refresh_header_vals = base64.b64encode("{}:{}".format(
-	CLIENT_ID, CLIENT_SECRET))
-	refresh_headers = {"Authorization": "Basic {}".format(
-	refresh_header_vals)}
-	
-	refresh_token_url = ACCESS_TOKEN_URL
-	refresh_request = requests.post(refresh_token_url,
-	data=refresh_params, headers=refresh_headers)
-	
-	refresh_response = json.loads(refresh_request.text)
-	if ("access_token" not in refresh_response):
-		return "Token could not be obtained and/or refreshed."
-
- 	#If refresh request was successful, update session access_token and file
-	session["access_token"] = refresh_response["access_token"]
-	iostream.close()
-	
-	token_dict = {
-		"access_token" : refresh_response["access_token"],
-		"token_type" : refresh_response["token_type"],
-		"scope" : refresh_response["scope"],
-		"expires_in" : refresh_response["expires_in"]
-	}
-	iostream = open("tokens.txt", 'w')
-	json.dump(token_dict, iostream)
-	iostream.close()	
-
-@app.route("/add_songs")
-def add_songs():
-	#Step 7: Get data from EQX website	
-	scraper = eqx.EQXDataScraper()
-	scraper.scrape_data()
-
-	#Step 8: Get username of user who granted access.
-	redirect(url_for("get_user"))
-
-	#Step 9: Get Spotify track IDs for every song added to the top 25 hits.
-	search_track_id_headers = {
-		"Authorization": "Bearer {}".format(session["access_token"])
-	}
-	track_ids = []
-	for hit in scraper.top_hits:
-		hit = ["Missed the Boat", "Modest Mouse"]
-		track_artist = [term.replace(" ", "%20") for term in hit]
-		query_string_params = {
-			"track" : track_artist[0],
-			"artist" : track_artist[1]
-		}
-		query_string = "%20".join(["{}:{}".format(key, value) for key, value in query_string_params.iteritems()])
-		search_track_id_endpoint = "https://api.spotify.com/v1/search"
-		search_track_id_params = {
-			"q" : query_string,
-			"type" : "track",
-			"limit" : "1"
-		}
-		search_track_id_endpoint += "&".join(["{}={}".format(key, value) for key, value in search_track_id_params.iteritems()])
-		return search_track_id_endpoint
-		search_track_id_request = requests.get(search_track_id_endpoint, headers=search_track_id_headers)
-		search_track_id_response = json.loads(search_track_id_request.text)
-		return str(search_track_id_response)
-		#track_ids.append()
-	#Step 10: Use the access token and username to access the Spotify Web API
-	#Specifically, we will create a playlist and add songs.
-	create_playlist_endpoint = "https://api.spotify.com/v1/users/{}/playlists".format(session["user_id"])
-	create_playlist_headers = {
-		"Authorization": "Bearer {}".format(session["access_token"]),
-		"Content-Type": CONTENT_TYPE
-	}
-	create_playlist_payload = {
-		"name": "hello"
-	}
-	
-	create_playlist_request = requests.post(
-	create_playlist_endpoint, headers=create_playlist_headers,
-	json=create_playlist_payload)
-	create_playlist_response = json.loads(create_playlist_request.text)
-	return create_playlist_request.content
-
-@app.route("/get_user")
-def get_user():
-	get_user_endpoint = "https://api.spotify.com/v1/me"
-	get_user_headers = {
-		"Authorization": "Bearer {}".format(session["access_token"])
-	}
-	get_user_request = requests.get(get_user_endpoint, headers=get_user_headers)
-	get_user_response = json.loads(get_user_request.text)
-	if ("id" not in get_user_response):
-		redirect(url_for("refresh"))
-	session["user_id"] = get_user_response["id"]
-
-if __name__ == '__main__':    	
-	app.run(debug=True)
-
-app.secret_key = "abc"
+				payload = {'playlisttime': time, 'playlistdate': date, 
+				'submitbtn': "Update"}
+				
+				r = requests.post("http://www.weqx.com/song-history/",
+				data=payload)
+				
+				#Parse through text to get all songs from past week 
+				bs = BeautifulSoup(r.text, "html.parser")
+				eqx_songs = bs.find_all("div", class_="songhistoryitem")
+				for s in eqx_songs:
+					try:
+						text = s["title"].encode("utf-8")
+						artist = text.split(" - ")[0]
+						song = text.split(" - ")[1]
+						songs_and_artists.append((song, artist))
+					except:
+						continue
+		counter = collections.Counter(songs_and_artists)
+		for song_and_artist, count in counter.most_common(self.num_hits):
+			self.top_hits.append(song_and_artist)
