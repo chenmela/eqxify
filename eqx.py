@@ -53,4 +53,4 @@ class EQXDataScraper:
 						continue
 		counter = collections.Counter(songs_and_artists)
 		for song_and_artist, count in counter.most_common(self.num_hits):
-			self.top_hits.append(song_and_artist)
+			self.top_hits.append([song_and_artist[0], song_and_artist[1]])

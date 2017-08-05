@@ -11,6 +11,8 @@ from random import SystemRandom
 app = Flask(__name__)
 
 #Global variables
+CLIENT_ID = "c5339f8e511445639d2bb229746c5576" 
+CLIENT_SECRET = "24272a4c1671447d8adff36928c4975f" 
 AUTH_URL = "https://accounts.spotify.com/authorize"
 APP_URI = "http://127.0.0.1:5000/"
 REDIRECT_URI = "http://127.0.0.1:5000/auth"		
@@ -164,31 +166,45 @@ def refresh():
 	}
 	iostream = open("tokens.txt", 'w')
 	json.dump(token_dict, iostream)
-	iostream.close()	
+	iostream.close()
+	return request.referrer	
 
 @app.route("/add_songs")
-def add_songs():
-	#Step 7: Get data from EQX website	
-	scraper = eqx.EQXDataScraper()
-	scraper.scrape_data()
-
-	#Step 8: Get username of user who granted access.
-	redirect(url_for("get_user"))
-
+def add_songs():	
+	#Step 7: Get username of user who granted access.
+	get_user_endpoint = "https://api.spotify.com/v1/me"
+	get_user_headers = {
+		"Authorization": "Bearer {}".format(session["access_token"])
+	}
+	get_user_request = requests.get(get_user_endpoint, headers=get_user_headers)
+	get_user_response = json.loads(get_user_request.text)
+	if ("id" not in get_user_response):
+		if ("get_user_failures" in session):
+			return "User name could not be found."
+		session["get_user_failures"] = True
+		return redirect(url_for("refresh"))
+	session["user_id"] = get_user_response["id"]
+	
+	#Step 8: Get data from EQX website	
+	#scraper = eqx.EQXDataScraper()
+	#scraper.scrape_data()
+	scraper = [["Mondo Cozmo", "Automatic"], ["Band of Horses", "Laredo"]]
+	
 	#Step 9: Get Spotify track IDs for every song added to the top 25 hits.
 	search_track_id_headers = {
 		"Authorization": "Bearer {}".format(session["access_token"])
 	}
 	track_ids = []
-	for hit in scraper.top_hits:
-		hit = ["Missed the Boat", "Modest Mouse"]
+	#for hit in scraper.top_hits:
+	for hit in scraper:
+		#try:
 		track_artist = [term.replace(" ", "%20") for term in hit]
 		query_string_params = {
 			"track" : track_artist[0],
 			"artist" : track_artist[1]
 		}
 		query_string = "%20".join(["{}:{}".format(key, value) for key, value in query_string_params.iteritems()])
-		search_track_id_endpoint = "https://api.spotify.com/v1/search&"
+		search_track_id_endpoint = "https://api.spotify.com/v1/search?"
 		search_track_id_params = {
 			"q" : query_string,
 			"type" : "track",
@@ -197,8 +213,11 @@ def add_songs():
 		search_track_id_endpoint += "&".join(["{}={}".format(key, value) for key, value in search_track_id_params.iteritems()])
 		search_track_id_request = requests.get(search_track_id_endpoint, headers=search_track_id_headers)
 		search_track_id_response = json.loads(search_track_id_request.text)
-		return str(search_track_id_response)
-		#track_ids.append()
+		return str(search_track_id_endpoint)
+		track_ids.append(search_track_id_response["tracks"]["items"][0]["uri"])
+		#except:
+		#	continue
+	
 	#Step 10: Use the access token and username to access the Spotify Web API
 	#Specifically, we will create a playlist and add songs.
 	create_playlist_endpoint = "https://api.spotify.com/v1/users/{}/playlists".format(session["user_id"])
@@ -207,28 +226,26 @@ def add_songs():
 		"Content-Type": CONTENT_TYPE
 	}
 	create_playlist_payload = {
-		"name": "hello"
+		"name": "Top 102.7 EQX hits"
 	}
 	
 	create_playlist_request = requests.post(
 	create_playlist_endpoint, headers=create_playlist_headers,
 	json=create_playlist_payload)
 	create_playlist_response = json.loads(create_playlist_request.text)
-	return create_playlist_request.content
+	session["playlist_id"] = create_playlist_response["id"]
 
-@app.route("/get_user")
-def get_user():
-	get_user_endpoint = "https://api.spotify.com/v1/me"
-	get_user_headers = {
-		"Authorization": "Bearer {}".format(session["access_token"])
+	#Step 11: Add songs to playlist just created
+	add_songs_endpoint = "https://api.spotify.com/v1/users/{}/playlists/{}/tracks".format(session["user_id"], session["playlist_id"])
+	add_songs_headers = create_playlist_headers
+	add_songs_payload = {
+		"uris": track_ids
 	}
-	get_user_request = requests.get(get_user_endpoint, headers=get_user_headers)
-	get_user_response = json.loads(get_user_request.text)
-	if ("id" not in get_user_response):
-		redirect(url_for("refresh"))
-	session["user_id"] = get_user_response["id"]
+	add_songs_request = requests.post(add_songs_endpoint, headers=add_songs_headers, json=add_songs_payload)
+	add_songs_response = json.loads(add_songs_request.text)
+	return str(add_songs_response)
 
 if __name__ == '__main__':    	
 	app.run(debug=True)
 
-app.secret_key = "abc"
+app.secret_key = "accc"
