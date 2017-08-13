@@ -186,37 +186,35 @@ def add_songs():
 	session["user_id"] = get_user_response["id"]
 	
 	#Step 8: Get data from EQX website	
-	#scraper = eqx.EQXDataScraper()
-	#scraper.scrape_data()
-	scraper = [["Mondo Cozmo", "Automatic"], ["Band of Horses", "Laredo"]]
+	scraper = eqx.EQXDataScraper()
+	scraper.scrape_data()
+	#scraper = [["Mondo Cozmo", "Automatic"], ["Band of Horses", "Laredo"]]
 	
 	#Step 9: Get Spotify track IDs for every song added to the top 25 hits.
 	search_track_id_headers = {
 		"Authorization": "Bearer {}".format(session["access_token"])
 	}
 	track_ids = []
-	#for hit in scraper.top_hits:
-	for hit in scraper:
-		#try:
-		track_artist = [term.replace(" ", "%20") for term in hit]
-		query_string_params = {
-			"track" : track_artist[0],
-			"artist" : track_artist[1]
-		}
-		query_string = "%20".join(["{}:{}".format(key, value) for key, value in query_string_params.iteritems()])
-		search_track_id_endpoint = "https://api.spotify.com/v1/search?"
-		search_track_id_params = {
-			"q" : query_string,
-			"type" : "track",
-			"limit" : "1"
-		}
-		search_track_id_endpoint += "&".join(["{}={}".format(key, value) for key, value in search_track_id_params.iteritems()])
-		search_track_id_request = requests.get(search_track_id_endpoint, headers=search_track_id_headers)
-		search_track_id_response = json.loads(search_track_id_request.text)
-		return str(search_track_id_endpoint)
-		track_ids.append(search_track_id_response["tracks"]["items"][0]["uri"])
-		#except:
-		#	continue
+	for hit in scraper.top_hits:
+		try:
+			track_artist = [term.replace(" ", "%20") for term in hit]
+			query_string_params = {
+				"track" : track_artist[1],
+				"artist" : track_artist[0]
+			}
+			query_string = "%20".join(["{}:{}".format(key, value) for key, value in query_string_params.iteritems()])
+			search_track_id_endpoint = "https://api.spotify.com/v1/search?"
+			search_track_id_params = {
+				"q" : query_string,
+				"type" : "track",
+				"limit" : "1"
+			}
+			search_track_id_endpoint += "&".join(["{}={}".format(key, value) for key, value in search_track_id_params.iteritems()])
+			search_track_id_request = requests.get(search_track_id_endpoint, headers=search_track_id_headers)
+			search_track_id_response = json.loads(search_track_id_request.text)
+			track_ids.append(search_track_id_response["tracks"]["items"][0]["uri"])
+		except:
+			continue
 	
 	#Step 10: Use the access token and username to access the Spotify Web API
 	#Specifically, we will create a playlist and add songs.
@@ -248,4 +246,4 @@ def add_songs():
 if __name__ == '__main__':    	
 	app.run(debug=True)
 
-app.secret_key = "accc"
+app.secret_key = "abcd"
