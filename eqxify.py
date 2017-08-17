@@ -6,13 +6,14 @@ import requests
 import json
 import eqx
 import io
+import os.path
 from random import SystemRandom
 #Flask app syntax
 app = Flask(__name__)
 
 #Global variables
-CLIENT_ID = "c5339f8e511445639d2bb229746c5576" 
-CLIENT_SECRET = "24272a4c1671447d8adff36928c4975f" 
+CLIENT_ID = ""
+CLIENT_SECRET = ""
 AUTH_URL = "https://accounts.spotify.com/authorize"
 APP_URI = "http://127.0.0.1:5000/"
 REDIRECT_URI = "http://127.0.0.1:5000/auth"		
@@ -171,7 +172,8 @@ def refresh():
 
 @app.route("/add_songs")
 def add_songs():	
-	#Step 7: Get username of user who granted access.
+	#Step 7: Use the access token and username to access the Spotify Web API
+	#First, we get the username of user who granted access.
 	get_user_endpoint = "https://api.spotify.com/v1/me"
 	get_user_headers = {
 		"Authorization": "Bearer {}".format(session["access_token"])
@@ -186,16 +188,17 @@ def add_songs():
 	session["user_id"] = get_user_response["id"]
 	
 	#Step 8: Get data from EQX website	
-	scraper = eqx.EQXDataScraper()
-	scraper.scrape_data()
-	#scraper = [["Mondo Cozmo", "Automatic"], ["Band of Horses", "Laredo"]]
+	#scraper = eqx.EQXDataScraper()
+	#scraper.scrape_data()
+	scraper = [["Mondo Cozmo", "Automatic"], ["Band of Horses", "Laredo"]]
 	
 	#Step 9: Get Spotify track IDs for every song added to the top 25 hits.
 	search_track_id_headers = {
 		"Authorization": "Bearer {}".format(session["access_token"])
 	}
 	track_ids = []
-	for hit in scraper.top_hits:
+	for hit in scraper:
+	#for hit in scraper.top_hits:
 		try:
 			track_artist = [term.replace(" ", "%20") for term in hit]
 			query_string_params = {
@@ -216,33 +219,60 @@ def add_songs():
 		except:
 			continue
 	
-	#Step 10: Use the access token and username to access the Spotify Web API
-	#Specifically, we will create a playlist and add songs.
-	create_playlist_endpoint = "https://api.spotify.com/v1/users/{}/playlists".format(session["user_id"])
-	create_playlist_headers = {
-		"Authorization": "Bearer {}".format(session["access_token"]),
-		"Content-Type": CONTENT_TYPE
-	}
-	create_playlist_payload = {
-		"name": "Top 102.7 EQX hits"
-	}
-	
-	create_playlist_request = requests.post(
-	create_playlist_endpoint, headers=create_playlist_headers,
-	json=create_playlist_payload)
-	create_playlist_response = json.loads(create_playlist_request.text)
-	session["playlist_id"] = create_playlist_response["id"]
+	#Step 10: Check for existence of a playlist called Top 102.7 EQX Hits
+	#If it exists, a file with its playlist ID exists. Otherwise, this file does not exist.
+	if (!os.path.isfile("playlist_id.txt")):		
 
-	#Step 11: Add songs to playlist just created
-	add_songs_endpoint = "https://api.spotify.com/v1/users/{}/playlists/{}/tracks".format(session["user_id"], session["playlist_id"])
-	add_songs_headers = create_playlist_headers
-	add_songs_payload = {
-		"uris": track_ids
-	}
-	add_songs_request = requests.post(add_songs_endpoint, headers=add_songs_headers, json=add_songs_payload)
-	add_songs_response = json.loads(add_songs_request.text)
-	return str(add_songs_response)
+		#Step 11a: If not present, create a playlist
+		create_playlist_endpoint = "https://api.spotify.com/v1/users/{}/playlists".format(session["user_id"])
+		create_playlist_headers = {
+			"Authorization": "Bearer {}".format(session["access_token"]),
+			"Content-Type": CONTENT_TYPE
+		}
+		create_playlist_payload = {
+			"name": "Top 102.7 EQX Hits"
+		}
+		
+		create_playlist_request = requests.post(
+		create_playlist_endpoint, headers=create_playlist_headers,
+		json=create_playlist_payload)
+		create_playlist_response = json.loads(create_playlist_request.text)
+		session["playlist_id"] = create_playlist_response["id"]
+		playlist_dict = {
+			"playlist_id": session["playlist_id"]
+		}
+		iostream = open("playlist_id.txt", 'w')
+		json.dump(playlist_dict, iostream)
+		iostream.close()
 
+		#Step 12: Add songs to playlist just created
+		add_songs_endpoint = "https://api.spotify.com/v1/users/{}/playlists/{}/tracks".format(session["user_id"], session["playlist_id"])
+		add_songs_headers = create_playlist_headers
+		add_songs_payload = {
+			"uris": track_ids
+		}
+		add_songs_request = requests.post(add_songs_endpoint, headers=add_songs_headers, json=add_songs_payload)
+		add_songs_response = json.loads(add_songs_request.text)
+		return str(add_songs_response)
+
+	#Step 11b: If present, replace all songs in existing playlist with new songs
+ 	else:
+		#Set session playlist id since it wasn't populated
+		#during creation of the playlist.
+		iostream = open("playlist_id.txt", 'r')
+		playlist_dict = json.load(iostream)
+
+		session["playlist_id"] = playlist_dict["playlist_id"]
+		replace_tracks_endpoint = "https://api.spotify.com/v1/users/{}/playlists/{}/tracks".format(session["user_id"], session["playlist_id"])
+		replace_tracks_headers = {
+			"Authorization": "Bearer {}".format(session["access_token"]),
+			"Content-Type": CONTENT_TYPE
+		}
+		replace_songs_payload = {
+			"uris": track_ids
+		}
+		replace_tracks_request = requests.put(replace_tracks_endpoint, headers=replace_track_headers, json=replace_songs_payload)	replace_tracks_response = json.loads(replace_tracks_request.text)
+		return str(replace_tracks_response)
 if __name__ == '__main__':    	
 	app.run(debug=True)
 
