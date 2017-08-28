@@ -6,14 +6,12 @@ import requests
 import json
 import eqx
 import io
-import os.path
+import os
 from random import SystemRandom
 #Flask app syntax
 app = Flask(__name__)
 
 #Global variables
-CLIENT_ID = ""
-CLIENT_SECRET = ""
 AUTH_URL = "https://accounts.spotify.com/authorize"
 APP_URI = "http://127.0.0.1:5000/"
 REDIRECT_URI = "http://127.0.0.1:5000/auth"		
@@ -221,7 +219,7 @@ def add_songs():
 	
 	#Step 10: Check for existence of a playlist called Top 102.7 EQX Hits
 	#If it exists, a file with its playlist ID exists. Otherwise, this file does not exist.
-	if (!os.path.isfile("playlist_id.txt")):		
+	if (not os.path.isfile("playlist_id.txt")):		
 
 		#Step 11a: If not present, create a playlist
 		create_playlist_endpoint = "https://api.spotify.com/v1/users/{}/playlists".format(session["user_id"])
@@ -271,7 +269,8 @@ def add_songs():
 		replace_songs_payload = {
 			"uris": track_ids
 		}
-		replace_tracks_request = requests.put(replace_tracks_endpoint, headers=replace_track_headers, json=replace_songs_payload)	replace_tracks_response = json.loads(replace_tracks_request.text)
+		replace_tracks_request = requests.put(replace_tracks_endpoint, headers=replace_track_headers, json=replace_songs_payload)
+		replace_tracks_response = json.loads(replace_tracks_request.text)
 		return str(replace_tracks_response)
 if __name__ == '__main__':    	
 	app.run(debug=True)
