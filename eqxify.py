@@ -80,7 +80,6 @@ def auth():
 
 	auth_code = request.args["code"]
 		
-	#state = request.args["state"]
 	access_params = {
 		"grant_type": "authorization_code",
 		"code": str(auth_code),
@@ -123,7 +122,7 @@ def auth():
 		#Save access token for different function calls within the same session
 		session["access_token"] = access_token
 	else:
-		redirect(url_for("refresh"))
+		return redirect(url_for("refresh"))
 	
 	return redirect(url_for("add_songs"))
 	
@@ -166,10 +165,12 @@ def refresh():
 	iostream = open("tokens.txt", 'w')
 	json.dump(token_dict, iostream)
 	iostream.close()
-	return request.referrer	
+	return redirect(url_for("add_songs"))	
 
 @app.route("/add_songs")
-def add_songs():	
+def add_songs():
+	if ("access_token" not in session):
+		return redirect(url_for("refresh"))	
 	#Step 7: Use the access token and username to access the Spotify Web API
 	#First, we get the username of user who granted access.
 	get_user_endpoint = "https://api.spotify.com/v1/me"
@@ -186,22 +187,20 @@ def add_songs():
 	session["user_id"] = get_user_response["id"]
 	
 	#Step 8: Get data from EQX website	
-	#scraper = eqx.EQXDataScraper()
-	#scraper.scrape_data()
-	scraper = [["Mondo Cozmo", "Automatic"], ["Band of Horses", "Laredo"]]
+	scraper = eqx.EQXDataScraper()
+	scraper.scrape_data()
 	
 	#Step 9: Get Spotify track IDs for every song added to the top 25 hits.
 	search_track_id_headers = {
 		"Authorization": "Bearer {}".format(session["access_token"])
 	}
 	track_ids = []
-	for hit in scraper:
-	#for hit in scraper.top_hits:
+	for hit in scraper.top_hits:
 		try:
 			track_artist = [term.replace(" ", "%20") for term in hit]
 			query_string_params = {
-				"track" : track_artist[1],
-				"artist" : track_artist[0]
+				"track" : track_artist[0],
+				"artist" : track_artist[1]
 			}
 			query_string = "%20".join(["{}:{}".format(key, value) for key, value in query_string_params.iteritems()])
 			search_track_id_endpoint = "https://api.spotify.com/v1/search?"
@@ -216,11 +215,9 @@ def add_songs():
 			track_ids.append(search_track_id_response["tracks"]["items"][0]["uri"])
 		except:
 			continue
-	
 	#Step 10: Check for existence of a playlist called Top 102.7 EQX Hits
 	#If it exists, a file with its playlist ID exists. Otherwise, this file does not exist.
-	if (not os.path.isfile("playlist_id.txt")):		
-
+	if (not os.path.isfile("playlist_id.txt")):
 		#Step 11a: If not present, create a playlist
 		create_playlist_endpoint = "https://api.spotify.com/v1/users/{}/playlists".format(session["user_id"])
 		create_playlist_headers = {
@@ -269,10 +266,10 @@ def add_songs():
 		replace_songs_payload = {
 			"uris": track_ids
 		}
-		replace_tracks_request = requests.put(replace_tracks_endpoint, headers=replace_track_headers, json=replace_songs_payload)
+		replace_tracks_request = requests.put(replace_tracks_endpoint, headers=replace_tracks_headers, json=replace_songs_payload)
 		replace_tracks_response = json.loads(replace_tracks_request.text)
 		return str(replace_tracks_response)
 if __name__ == '__main__':    	
 	app.run(debug=True)
 
-app.secret_key = "abcd"
+app.secret_key = os.urandom(24)

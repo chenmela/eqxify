@@ -22,35 +22,32 @@ class EQXDataScraper:
 		'8:30pm', '9:00pm', '9:30pm', '10:00pm', '10:30pm', '11:00pm',
 		'11:30pm']
 
-		day = dt.date.today()
+		#Make requests for every 30-min interval in the past day
+		day = dt.date.today() - dt.timedelta(days=1)
 
-		#Make requests for every 30-min interval in the past week
-		for x in range(7):
-			day = day - dt.timedelta(days=1)
-
-			#Format date as MM/DD/YYYY
-			date = day.strftime("%m/%d/%Y")
+		#Format date as MM/DD/YYYY
+		date = day.strftime("%m/%d/%Y")
 			
-			#Get time from above list
-			for time in times:
+		#Get time from above list
+		for time in times:
 
-				payload = {'playlisttime': time, 'playlistdate': date, 
-				'submitbtn': "Update"}
+			payload = {'playlisttime': time, 'playlistdate': date, 
+			'submitbtn': "Update"}
+			
+			r = requests.post("http://www.weqx.com/song-history/",
+			data=payload)
 				
-				r = requests.post("http://www.weqx.com/song-history/",
-				data=payload)
-				
-				#Parse through text to get all songs from past week 
-				bs = BeautifulSoup(r.text, "html.parser")
-				eqx_songs = bs.find_all("div", class_="songhistoryitem")
-				for s in eqx_songs:
-					try:
-						text = s["title"].encode("utf-8")
-						artist = text.split(" - ")[0]
-						song = text.split(" - ")[1]
-						songs_and_artists.append((song, artist))
-					except:
-						continue
+			#Parse through text to get all songs from past week 
+			bs = BeautifulSoup(r.text, "html.parser")
+			eqx_songs = bs.find_all("div", class_="songhistoryitem")
+			for s in eqx_songs:
+				try:
+					text = s["title"].encode("utf-8")
+					artist = text.split(" - ")[0]
+					song = text.split(" - ")[1]
+					songs_and_artists.append((song, artist))
+				except:
+					continue
 		counter = collections.Counter(songs_and_artists)
 		for song_and_artist, count in counter.most_common(self.num_hits):
 			self.top_hits.append([song_and_artist[0], song_and_artist[1]])
