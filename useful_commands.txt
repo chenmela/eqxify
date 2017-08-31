@@ -1,0 +1,6 @@
+lsof -i :5000 lists all processes listening on port 5000 (-i indicates Internet port)
+ps -fp <PID> displays detailed (-f) information about process with process ID <PID> (-p)
+kill <PID> kills a process with process ID <PID>
+export FLASK_APP=<flask_app_name> sets flask app for a given session
+flask run runs the application specified in previous command
+chmod +x <filename> specifies that the file can be run as an executable (+x)

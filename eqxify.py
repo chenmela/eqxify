@@ -160,7 +160,8 @@ def refresh():
 		"access_token" : refresh_response["access_token"],
 		"token_type" : refresh_response["token_type"],
 		"scope" : refresh_response["scope"],
-		"expires_in" : refresh_response["expires_in"]
+		"expires_in" : refresh_response["expires_in"],
+		"refresh_token" : session["refresh_token"]
 	}
 	iostream = open("tokens.txt", 'w')
 	json.dump(token_dict, iostream)
