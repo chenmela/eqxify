@@ -4,3 +4,7 @@ kill <PID> kills a process with process ID <PID>
 export FLASK_APP=<flask_app_name> sets flask app for a given session
 flask run runs the application specified in previous command
 chmod +x <filename> specifies that the file can be run as an executable (+x)
+
+Need to do before running:
+1) Authenticate with Spotify
+2) Add to crontab
