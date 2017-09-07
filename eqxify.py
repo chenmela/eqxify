@@ -137,6 +137,7 @@ def refresh():
 		"grant_type": "refresh_token",
 		"refresh_token" : token_dict["refresh_token"]
 	}
+	session["refresh_token"] = token_dict["refresh_token"]
 
 	#Create headers and make request for refresh token
 	refresh_header_vals = base64.b64encode("{}:{}".format(
@@ -190,7 +191,9 @@ def add_songs():
 	#Step 8: Get data from EQX website	
 	scraper = eqx.EQXDataScraper()
 	scraper.scrape_data()
-	
+
+	for hit in scraper.top_hits:
+		print(hit)	
 	#Step 9: Get Spotify track IDs for every song added to the top 25 hits.
 	search_track_id_headers = {
 		"Authorization": "Bearer {}".format(session["access_token"])
