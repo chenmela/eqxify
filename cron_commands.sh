@@ -1,5 +1,5 @@
 #!/bin/bash
-export FLASK_APP=dev2.py
+export FLASK_APP=eqxify.py
 flask run&
 
 while ! nc -z localhost 5000; do
