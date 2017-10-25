@@ -51,7 +51,7 @@ flask run
 
 Visit 127.0.0.1:5000, authorize access to the app, and enjoy!
 
-##TODO:
+## TODO:
 * Updates to cron installation
 * script for developers that takes client ID and secret,
 automates set-up of Flask app and cron
