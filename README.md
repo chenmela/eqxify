@@ -4,11 +4,11 @@ Scrapes data from 102.7 WEQX online song history log, calculates
 top hits of the day, and updates a user's Spotify playlist.
 
 ## Tools & Technology
-* Python [requests] (http://docs.python-requests.org/en/master/), [Beautiful Soup] (https://www.crummy.com/software/BeautifulSoup/bs4/doc/), [collections] (https://docs.python.org/2/library/collections.html)
-* [Flask] (http://flask.pocoo.org/)
-* [Spotify API] (https://developer.spotify.com/web-api/)
-* [Crontab] (https://help.ubuntu.com/community/CronHowto)
-* [virtualenv] (https://virtualenv.pypa.io/en/stable/) (optional)
+* Python [requests](http://docs.python-requests.org/en/master/), [Beautiful Soup](https://www.crummy.com/software/BeautifulSoup/bs4/doc/), [collections](https://docs.python.org/2/library/collections.html)
+* [Flask](http://flask.pocoo.org/)
+* [Spotify API](https://developer.spotify.com/web-api/)
+* [Crontab](https://help.ubuntu.com/community/CronHowto)
+* [virtualenv](https://virtualenv.pypa.io/en/stable/) (optional)
 
 
 ## Getting Started
@@ -38,7 +38,7 @@ pip install request
 ```
 
 Create a Spotify app:
-* Follow the instructions [here] (https://developer.spotify.com/web-api/)
+* Follow the instructions [here](https://developer.spotify.com/web-api/)
 * Add your client ID and client secret to eqxify.py
 * Add http://127.0.0.1:5000 as your redirect URI on the Spotify dashboard (or another port)
 
